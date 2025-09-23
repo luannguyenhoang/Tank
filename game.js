@@ -98,6 +98,10 @@ class TankBattleGame {
             this.startRoomGame();
         });
         
+        document.getElementById('copy-code-waiting-btn').addEventListener('click', () => {
+            this.copyRoomCodeWaiting();
+        });
+        
         // Room code input
         document.getElementById('room-code-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
@@ -133,6 +137,11 @@ class TankBattleGame {
         this.currentView = 'waiting-room';
         this.hideAllViews();
         document.getElementById('waiting-room').style.display = 'block';
+        
+        // Update room code in waiting room
+        if (this.roomCode) {
+            document.getElementById('room-code-waiting').textContent = this.roomCode;
+        }
     }
     
     hideAllViews() {
@@ -322,6 +331,17 @@ class TankBattleGame {
     copyRoomCode() {
         navigator.clipboard.writeText(this.roomCode).then(() => {
             const btn = document.getElementById('copy-code-btn');
+            const originalText = btn.textContent;
+            btn.textContent = 'Copied!';
+            setTimeout(() => {
+                btn.textContent = originalText;
+            }, 2000);
+        });
+    }
+    
+    copyRoomCodeWaiting() {
+        navigator.clipboard.writeText(this.roomCode).then(() => {
+            const btn = document.getElementById('copy-code-waiting-btn');
             const originalText = btn.textContent;
             btn.textContent = 'Copied!';
             setTimeout(() => {

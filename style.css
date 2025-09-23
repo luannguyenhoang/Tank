@@ -223,6 +223,38 @@ body {
 }
 
 /* Waiting room styles */
+.room-code-waiting {
+    margin: 20px 0;
+    text-align: center;
+}
+
+.room-code-waiting label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: bold;
+    color: #ecf0f1;
+}
+
+.code-display-waiting {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 10px 0;
+}
+
+#room-code-waiting {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 1.5em;
+    font-weight: bold;
+    letter-spacing: 2px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: #ffeb3b;
+}
+
 .players-list {
     margin: 20px 0;
 }
