@@ -748,54 +748,97 @@ class Tank {
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
         
-        // Tank shadow
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-        ctx.fillRect(-this.radius - 2, this.radius + 2, this.radius * 2 + 4, 4);
+        // Tank shadow - soft grey shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+        ctx.fillRect(-this.radius - 3, this.radius + 3, this.radius * 2 + 6, 6);
         
-        // Tank hull (main body) - olive green
+        // Tank hull (main body) - olive green with sloped edges
         ctx.fillStyle = '#8B9A46';
-        ctx.fillRect(-this.radius, -this.radius * 0.6, this.radius * 2, this.radius * 1.2);
+        ctx.beginPath();
+        ctx.moveTo(-this.radius, -this.radius * 0.5);
+        ctx.lineTo(this.radius * 0.7, -this.radius * 0.7);
+        ctx.lineTo(this.radius, -this.radius * 0.4);
+        ctx.lineTo(this.radius, this.radius * 0.4);
+        ctx.lineTo(this.radius * 0.7, this.radius * 0.7);
+        ctx.lineTo(-this.radius, this.radius * 0.5);
+        ctx.closePath();
+        ctx.fill();
         
-        // Tank tracks
-        ctx.fillStyle = '#6B7C32';
-        ctx.fillRect(-this.radius - 2, -this.radius * 0.8, 4, this.radius * 1.6);
-        ctx.fillRect(this.radius - 2, -this.radius * 0.8, 4, this.radius * 1.6);
+        // Tank tracks - dark brown sections
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(-this.radius - 3, -this.radius * 0.6, 6, this.radius * 1.2);
+        ctx.fillRect(this.radius - 3, -this.radius * 0.6, 6, this.radius * 1.2);
         
-        // Tank turret - slightly lighter green
+        // Track details
+        ctx.fillStyle = '#654321';
+        for (let i = 0; i < 4; i++) {
+            const y = -this.radius * 0.6 + (i * this.radius * 0.4);
+            ctx.fillRect(-this.radius - 2, y, 4, 3);
+            ctx.fillRect(this.radius - 2, y, 4, 3);
+        }
+        
+        // Tank turret - hexagonal shape
         ctx.fillStyle = '#9BAF5A';
-        const turretWidth = this.radius * 1.2;
-        const turretHeight = this.radius * 0.8;
-        ctx.fillRect(-turretWidth/2, -turretHeight/2, turretWidth, turretHeight);
+        const turretWidth = this.radius * 1.4;
+        const turretHeight = this.radius * 0.9;
+        ctx.beginPath();
+        ctx.moveTo(-turretWidth/3, -turretHeight/2);
+        ctx.lineTo(turretWidth/3, -turretHeight/2);
+        ctx.lineTo(turretWidth/2, -turretHeight/4);
+        ctx.lineTo(turretWidth/2, turretHeight/4);
+        ctx.lineTo(turretWidth/3, turretHeight/2);
+        ctx.lineTo(-turretWidth/3, turretHeight/2);
+        ctx.lineTo(-turretWidth/2, turretHeight/4);
+        ctx.lineTo(-turretWidth/2, -turretHeight/4);
+        ctx.closePath();
+        ctx.fill();
         
-        // Turret details
+        // Turret details - circular and rectangular elements
         ctx.fillStyle = '#6B7C32';
-        // Circular details on turret
+        
+        // Commander's cupola (large circular feature)
         ctx.beginPath();
-        ctx.arc(-turretWidth/4, -turretHeight/4, this.radius * 0.15, 0, Math.PI * 2);
+        ctx.arc(turretWidth/6, -turretHeight/4, this.radius * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Small circular details
+        ctx.beginPath();
+        ctx.arc(-turretWidth/4, -turretHeight/4, this.radius * 0.12, 0, Math.PI * 2);
         ctx.fill();
         
         ctx.beginPath();
-        ctx.arc(turretWidth/4, -turretHeight/4, this.radius * 0.1, 0, Math.PI * 2);
+        ctx.arc(turretWidth/4, turretHeight/4, this.radius * 0.08, 0, Math.PI * 2);
         ctx.fill();
         
-        // Rectangular detail
-        ctx.fillRect(turretWidth/3, -turretHeight/6, this.radius * 0.3, this.radius * 0.2);
+        // Rectangular details
+        ctx.fillRect(turretWidth/4, -turretHeight/6, this.radius * 0.25, this.radius * 0.15);
+        ctx.fillRect(-turretWidth/3, turretHeight/6, this.radius * 0.2, this.radius * 0.1);
         
-        // Main gun barrel
-        ctx.fillStyle = '#34495e';
-        const barrelLength = this.radius * 1.5;
-        const barrelWidth = this.radius * 0.2;
+        // Main gun barrel - long and thin
+        ctx.fillStyle = '#8B9A46';
+        const barrelLength = this.radius * 2.2;
+        const barrelWidth = this.radius * 0.15;
         ctx.fillRect(turretWidth/2, -barrelWidth/2, barrelLength, barrelWidth);
         
-        // Gun muzzle
-        ctx.fillStyle = '#2c3e50';
-        ctx.fillRect(turretWidth/2 + barrelLength, -barrelWidth/2 - 1, 3, barrelWidth + 2);
+        // Gun muzzle - reinforced end
+        ctx.fillStyle = '#6B7C32';
+        ctx.fillRect(turretWidth/2 + barrelLength, -barrelWidth/2 - 1, 4, barrelWidth + 2);
         
-        // Tank outline
-        ctx.strokeStyle = '#2c3e50';
+        // Tank outline - darker green
+        ctx.strokeStyle = '#6B7C32';
         ctx.lineWidth = 2;
-        ctx.strokeRect(-this.radius, -this.radius * 0.6, this.radius * 2, this.radius * 1.2);
-        ctx.strokeRect(-turretWidth/2, -turretHeight/2, turretWidth, turretHeight);
+        ctx.stroke();
+        
+        // Hull outline
+        ctx.beginPath();
+        ctx.moveTo(-this.radius, -this.radius * 0.5);
+        ctx.lineTo(this.radius * 0.7, -this.radius * 0.7);
+        ctx.lineTo(this.radius, -this.radius * 0.4);
+        ctx.lineTo(this.radius, this.radius * 0.4);
+        ctx.lineTo(this.radius * 0.7, this.radius * 0.7);
+        ctx.lineTo(-this.radius, this.radius * 0.5);
+        ctx.closePath();
+        ctx.stroke();
         
         // Health bar
         ctx.restore();
