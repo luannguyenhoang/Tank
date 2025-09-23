@@ -748,15 +748,54 @@ class Tank {
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
         
-        // Tank body
-        ctx.fillStyle = this.color;
+        // Tank shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.fillRect(-this.radius - 2, this.radius + 2, this.radius * 2 + 4, 4);
+        
+        // Tank hull (main body) - olive green
+        ctx.fillStyle = '#8B9A46';
+        ctx.fillRect(-this.radius, -this.radius * 0.6, this.radius * 2, this.radius * 1.2);
+        
+        // Tank tracks
+        ctx.fillStyle = '#6B7C32';
+        ctx.fillRect(-this.radius - 2, -this.radius * 0.8, 4, this.radius * 1.6);
+        ctx.fillRect(this.radius - 2, -this.radius * 0.8, 4, this.radius * 1.6);
+        
+        // Tank turret - slightly lighter green
+        ctx.fillStyle = '#9BAF5A';
+        const turretWidth = this.radius * 1.2;
+        const turretHeight = this.radius * 0.8;
+        ctx.fillRect(-turretWidth/2, -turretHeight/2, turretWidth, turretHeight);
+        
+        // Turret details
+        ctx.fillStyle = '#6B7C32';
+        // Circular details on turret
         ctx.beginPath();
-        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.arc(-turretWidth/4, -turretHeight/4, this.radius * 0.15, 0, Math.PI * 2);
         ctx.fill();
         
-        // Tank barrel
+        ctx.beginPath();
+        ctx.arc(turretWidth/4, -turretHeight/4, this.radius * 0.1, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Rectangular detail
+        ctx.fillRect(turretWidth/3, -turretHeight/6, this.radius * 0.3, this.radius * 0.2);
+        
+        // Main gun barrel
         ctx.fillStyle = '#34495e';
-        ctx.fillRect(this.radius - 5, -3, 20, 6);
+        const barrelLength = this.radius * 1.5;
+        const barrelWidth = this.radius * 0.2;
+        ctx.fillRect(turretWidth/2, -barrelWidth/2, barrelLength, barrelWidth);
+        
+        // Gun muzzle
+        ctx.fillStyle = '#2c3e50';
+        ctx.fillRect(turretWidth/2 + barrelLength, -barrelWidth/2 - 1, 3, barrelWidth + 2);
+        
+        // Tank outline
+        ctx.strokeStyle = '#2c3e50';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-this.radius, -this.radius * 0.6, this.radius * 2, this.radius * 1.2);
+        ctx.strokeRect(-turretWidth/2, -turretHeight/2, turretWidth, turretHeight);
         
         // Health bar
         ctx.restore();
@@ -767,8 +806,11 @@ class Tank {
         
         // Player ID
         ctx.fillStyle = 'white';
-        ctx.font = '12px Arial';
+        ctx.font = 'bold 12px Arial';
         ctx.textAlign = 'center';
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 2;
+        ctx.strokeText(this.id.toUpperCase(), this.x, this.y - 50);
         ctx.fillText(this.id.toUpperCase(), this.x, this.y - 50);
     }
 }
