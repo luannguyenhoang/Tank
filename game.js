@@ -1,0 +1,356 @@
+class TankBattleGame {
+    constructor() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.gameState = 'waiting'; // waiting, playing, gameOver
+        this.playerId = null;
+        this.players = {};
+        this.bullets = [];
+        this.keys = {};
+        this.mouse = { x: 0, y: 0 };
+        this.lastTime = 0;
+        this.gameId = null;
+        
+        this.setupEventListeners();
+        this.setupUI();
+        this.gameLoop();
+    }
+    
+    setupEventListeners() {
+        // Keyboard events
+        document.addEventListener('keydown', (e) => {
+            this.keys[e.code] = true;
+            if (e.code === 'Space') {
+                e.preventDefault();
+                this.shoot();
+            }
+            if (e.code === 'KeyR') {
+                e.preventDefault();
+                this.reload();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            this.keys[e.code] = false;
+        });
+        
+        // Mouse events
+        this.canvas.addEventListener('mousemove', (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            this.mouse.x = e.clientX - rect.left;
+            this.mouse.y = e.clientY - rect.top;
+        });
+        
+        this.canvas.addEventListener('click', (e) => {
+            if (this.gameState === 'playing') {
+                this.shoot();
+            }
+        });
+    }
+    
+    setupUI() {
+        document.getElementById('start-btn').addEventListener('click', () => {
+            this.startGame();
+        });
+        
+        document.getElementById('join-btn').addEventListener('click', () => {
+            this.joinGame();
+        });
+    }
+    
+    startGame() {
+        this.gameState = 'playing';
+        this.playerId = 'player1';
+        this.players = {
+            player1: new Tank(100, 300, 'player1', '#3498db'),
+            player2: new Tank(900, 300, 'player2', '#e74c3c')
+        };
+        this.hideOverlay();
+        this.updateUI();
+    }
+    
+    joinGame() {
+        // In a real implementation, this would connect to a WebSocket server
+        this.gameState = 'playing';
+        this.playerId = 'player2';
+        this.players = {
+            player1: new Tank(100, 300, 'player1', '#3498db'),
+            player2: new Tank(900, 300, 'player2', '#e74c3c')
+        };
+        this.hideOverlay();
+        this.updateUI();
+    }
+    
+    hideOverlay() {
+        document.getElementById('game-overlay').classList.add('hidden');
+    }
+    
+    showOverlay(title, message, showJoin = false) {
+        document.getElementById('overlay-title').textContent = title;
+        document.getElementById('overlay-message').textContent = message;
+        document.getElementById('join-btn').style.display = showJoin ? 'inline-block' : 'none';
+        document.getElementById('game-overlay').classList.remove('hidden');
+    }
+    
+    updateUI() {
+        if (this.players.player1) {
+            document.getElementById('player1-health').textContent = `Health: ${this.players.player1.health}`;
+            document.getElementById('player1-ammo').textContent = `Ammo: ${this.players.player1.ammo}`;
+        }
+        if (this.players.player2) {
+            document.getElementById('player2-health').textContent = `Health: ${this.players.player2.health}`;
+            document.getElementById('player2-ammo').textContent = `Ammo: ${this.players.player2.ammo}`;
+        }
+        
+        let status = 'Waiting for players...';
+        if (this.gameState === 'playing') {
+            status = 'Game in progress!';
+        } else if (this.gameState === 'gameOver') {
+            status = 'Game Over!';
+        }
+        document.getElementById('game-status').textContent = status;
+    }
+    
+    handleInput() {
+        if (this.gameState !== 'playing' || !this.playerId || !this.players[this.playerId]) return;
+        
+        const player = this.players[this.playerId];
+        const speed = 3;
+        
+        // Movement
+        if (this.keys['KeyW'] || this.keys['ArrowUp']) {
+            player.y -= speed;
+        }
+        if (this.keys['KeyS'] || this.keys['ArrowDown']) {
+            player.y += speed;
+        }
+        if (this.keys['KeyA'] || this.keys['ArrowLeft']) {
+            player.x -= speed;
+        }
+        if (this.keys['KeyD'] || this.keys['ArrowRight']) {
+            player.x += speed;
+        }
+        
+        // Keep tank within bounds
+        player.x = Math.max(25, Math.min(this.canvas.width - 25, player.x));
+        player.y = Math.max(25, Math.min(this.canvas.height - 25, player.y));
+        
+        // Update tank angle based on mouse position
+        const dx = this.mouse.x - player.x;
+        const dy = this.mouse.y - player.y;
+        player.angle = Math.atan2(dy, dx);
+    }
+    
+    shoot() {
+        if (this.gameState !== 'playing' || !this.playerId || !this.players[this.playerId]) return;
+        
+        const player = this.players[this.playerId];
+        if (player.ammo <= 0) return;
+        
+        player.ammo--;
+        const bullet = new Bullet(
+            player.x + Math.cos(player.angle) * 30,
+            player.y + Math.sin(player.angle) * 30,
+            player.angle,
+            player.id
+        );
+        this.bullets.push(bullet);
+        this.updateUI();
+    }
+    
+    reload() {
+        if (this.gameState !== 'playing' || !this.playerId || !this.players[this.playerId]) return;
+        
+        const player = this.players[this.playerId];
+        player.ammo = Math.min(30, player.ammo + 10);
+        this.updateUI();
+    }
+    
+    updateBullets() {
+        for (let i = this.bullets.length - 1; i >= 0; i--) {
+            const bullet = this.bullets[i];
+            bullet.update();
+            
+            // Remove bullets that are out of bounds
+            if (bullet.x < 0 || bullet.x > this.canvas.width || 
+                bullet.y < 0 || bullet.y > this.canvas.height) {
+                this.bullets.splice(i, 1);
+                continue;
+            }
+            
+            // Check collision with players
+            for (const playerId in this.players) {
+                const player = this.players[playerId];
+                if (player.id !== bullet.ownerId && this.checkCollision(bullet, player)) {
+                    player.takeDamage(20);
+                    this.bullets.splice(i, 1);
+                    this.updateUI();
+                    
+                    if (player.health <= 0) {
+                        this.gameOver(playerId === this.playerId ? 'You Lost!' : 'You Won!');
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    
+    checkCollision(bullet, player) {
+        const dx = bullet.x - player.x;
+        const dy = bullet.y - player.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        return distance < 25; // Tank radius + bullet radius
+    }
+    
+    gameOver(message) {
+        this.gameState = 'gameOver';
+        this.showOverlay('Game Over!', message, true);
+    }
+    
+    render() {
+        // Clear canvas
+        this.ctx.fillStyle = '#27ae60';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Draw grid
+        this.drawGrid();
+        
+        // Draw players
+        for (const playerId in this.players) {
+            this.players[playerId].render(this.ctx);
+        }
+        
+        // Draw bullets
+        this.bullets.forEach(bullet => bullet.render(this.ctx));
+        
+        // Draw crosshair
+        if (this.gameState === 'playing') {
+            this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            this.ctx.lineWidth = 2;
+            this.ctx.beginPath();
+            this.ctx.moveTo(this.mouse.x - 10, this.mouse.y);
+            this.ctx.lineTo(this.mouse.x + 10, this.mouse.y);
+            this.ctx.moveTo(this.mouse.x, this.mouse.y - 10);
+            this.ctx.lineTo(this.mouse.x, this.mouse.y + 10);
+            this.ctx.stroke();
+        }
+    }
+    
+    drawGrid() {
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        this.ctx.lineWidth = 1;
+        
+        // Vertical lines
+        for (let x = 0; x <= this.canvas.width; x += 50) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, this.canvas.height);
+            this.ctx.stroke();
+        }
+        
+        // Horizontal lines
+        for (let y = 0; y <= this.canvas.height; y += 50) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, y);
+            this.ctx.lineTo(this.canvas.width, y);
+            this.ctx.stroke();
+        }
+    }
+    
+    gameLoop(currentTime = 0) {
+        const deltaTime = currentTime - this.lastTime;
+        this.lastTime = currentTime;
+        
+        if (this.gameState === 'playing') {
+            this.handleInput();
+            this.updateBullets();
+        }
+        
+        this.render();
+        this.updateUI();
+        
+        requestAnimationFrame((time) => this.gameLoop(time));
+    }
+}
+
+class Tank {
+    constructor(x, y, id, color) {
+        this.x = x;
+        this.y = y;
+        this.id = id;
+        this.color = color;
+        this.angle = 0;
+        this.health = 100;
+        this.maxHealth = 100;
+        this.ammo = 30;
+        this.maxAmmo = 30;
+        this.radius = 25;
+    }
+    
+    takeDamage(damage) {
+        this.health = Math.max(0, this.health - damage);
+    }
+    
+    render(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+        
+        // Tank body
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Tank barrel
+        ctx.fillStyle = '#34495e';
+        ctx.fillRect(this.radius - 5, -3, 20, 6);
+        
+        // Health bar
+        ctx.restore();
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(this.x - 30, this.y - 40, 60, 8);
+        ctx.fillStyle = this.health > 50 ? '#27ae60' : this.health > 25 ? '#f39c12' : '#e74c3c';
+        ctx.fillRect(this.x - 30, this.y - 40, (this.health / this.maxHealth) * 60, 8);
+        
+        // Player ID
+        ctx.fillStyle = 'white';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.id.toUpperCase(), this.x, this.y - 50);
+    }
+}
+
+class Bullet {
+    constructor(x, y, angle, ownerId) {
+        this.x = x;
+        this.y = y;
+        this.angle = angle;
+        this.ownerId = ownerId;
+        this.speed = 8;
+        this.radius = 3;
+    }
+    
+    update() {
+        this.x += Math.cos(this.angle) * this.speed;
+        this.y += Math.sin(this.angle) * this.speed;
+    }
+    
+    render(ctx) {
+        ctx.fillStyle = '#f39c12';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Bullet trail effect
+        ctx.fillStyle = 'rgba(243, 156, 18, 0.3)';
+        ctx.beginPath();
+        ctx.arc(this.x - Math.cos(this.angle) * 10, this.y - Math.sin(this.angle) * 10, this.radius * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+// Initialize game when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    new TankBattleGame();
+});

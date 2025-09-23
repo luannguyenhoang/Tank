@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tank Battle 1v1 - Real Time</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <h1>🚗 Tank Battle 1v1</h1>
+            <div class="game-info">
+                <div class="player-info">
+                    <span id="player1-health">Health: 100</span>
+                    <span id="player1-ammo">Ammo: 30</span>
+                </div>
+                <div class="game-status">
+                    <span id="game-status">Waiting for players...</span>
+                </div>
+                <div class="player-info">
+                    <span id="player2-health">Health: 100</span>
+                    <span id="player2-ammo">Ammo: 30</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="game-area">
+            <canvas id="gameCanvas" width="1000" height="600"></canvas>
+            <div class="game-overlay" id="game-overlay">
+                <div class="overlay-content">
+                    <h2 id="overlay-title">Tank Battle 1v1</h2>
+                    <p id="overlay-message">Click "Start Game" to begin!</p>
+                    <button id="start-btn" class="btn">Start Game</button>
+                    <button id="join-btn" class="btn" style="display: none;">Join Game</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <div class="control-section">
+                <h3>Controls</h3>
+                <div class="control-grid">
+                    <div class="control-item">
+                        <span class="key">WASD</span>
+                        <span class="action">Move Tank</span>
+                    </div>
+                    <div class="control-item">
+                        <span class="key">Space</span>
+                        <span class="action">Shoot</span>
+                    </div>
+                    <div class="control-item">
+                        <span class="key">Mouse</span>
+                        <span class="action">Aim</span>
+                    </div>
+                    <div class="control-item">
+                        <span class="key">R</span>
+                        <span class="action">Reload</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="game.js"></script>
+</body>
+</html>
