@@ -163,9 +163,11 @@ class TankBattleGame {
     }
     
     connectWebSocket() {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        // For Railway deployment, use wss protocol
+        const protocol = 'wss:';
         const wsUrl = `${protocol}//${window.location.host}`;
         
+        console.log('Connecting to WebSocket:', wsUrl);
         this.ws = new WebSocket(wsUrl);
         
         this.ws.onopen = () => {
@@ -259,6 +261,7 @@ class TankBattleGame {
     }
     
     startMultiplayerGame(players) {
+        console.log('Starting multiplayer game with players:', players);
         this.gameState = 'playing';
         this.players = {};
         
@@ -277,6 +280,9 @@ class TankBattleGame {
                 this.playerId = player.id;
             }
         });
+        
+        console.log('My player ID:', this.playerId);
+        console.log('All players:', this.players);
         
         this.hideOverlay();
         this.updateUI();
@@ -363,7 +369,10 @@ class TankBattleGame {
     }
     
     handleInput() {
-        if (this.gameState !== 'playing' || !this.playerId || !this.players[this.playerId]) return;
+        if (this.gameState !== 'playing' || !this.playerId || !this.players[this.playerId]) {
+            console.log('Input blocked - gameState:', this.gameState, 'playerId:', this.playerId, 'players:', this.players);
+            return;
+        }
         
         const player = this.players[this.playerId];
         const speed = 3;
@@ -396,8 +405,8 @@ class TankBattleGame {
         const dy = this.mouse.y - player.y;
         player.angle = Math.atan2(dy, dx);
         
-        // Send update to server if moved
-        if (moved && this.ws) {
+        // Send update to server if moved (only in multiplayer)
+        if (moved && this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify({
                 type: 'gameUpdate',
                 x: player.x,
@@ -415,7 +424,7 @@ class TankBattleGame {
         
         player.ammo--;
         
-        if (this.ws) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             // Multiplayer mode - send to server
             this.ws.send(JSON.stringify({
                 type: 'shoot',
@@ -443,7 +452,7 @@ class TankBattleGame {
         const player = this.players[this.playerId];
         player.ammo = Math.min(30, player.ammo + 10);
         
-        if (this.ws) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify({
                 type: 'reload'
             }));
