@@ -736,7 +736,7 @@ class Tank {
         this.maxHealth = 100;
         this.ammo = 30;
         this.maxAmmo = 30;
-        this.radius = 25;
+        this.radius = 30;  // Slightly larger radius to match the image style
     }
     
     takeDamage(damage) {
@@ -753,44 +753,38 @@ class Tank {
         ctx.fillRect(-this.radius - 1, this.radius + 1, this.radius * 2 + 2, 3);
         
         // Tank hull (main body) - light olive green with rounded corners
-        ctx.fillStyle = '#A0B060';
-        this.drawRoundedRect(ctx, -this.radius, -this.radius * 0.4, this.radius * 2, this.radius * 0.8, 3);
+        ctx.fillStyle = '#A0B060';  // Adjusted for a more tank-like color
+        this.drawRoundedRect(ctx, -this.radius, -this.radius * 0.5, this.radius * 2, this.radius * 1, 6);  // Wider body for tank appearance
         
         // Tank tracks - same color as hull, extending beyond hull
         ctx.fillStyle = '#A0B060';
-        ctx.fillRect(-this.radius - 3, -this.radius * 0.5, 3, this.radius);
-        ctx.fillRect(this.radius, -this.radius * 0.5, 3, this.radius);
+        ctx.fillRect(-this.radius - 3, -this.radius * 0.5, 3, this.radius * 1.5);  // Thick track
+        ctx.fillRect(this.radius, -this.radius * 0.5, 3, this.radius * 1.5);  // Thick track
         
         // Tank turret - same light olive green, positioned on hull
         ctx.fillStyle = '#A0B060';
-        const turretWidth = this.radius * 0.8;
-        const turretHeight = this.radius * 0.5;
-        this.drawRoundedRect(ctx, -turretWidth/2, -turretHeight/2 - this.radius * 0.1, turretWidth, turretHeight, 2);
+        const turretWidth = this.radius * 1;  // Wider turret
+        const turretHeight = this.radius * 0.6;
+        this.drawRoundedRect(ctx, -turretWidth / 2, -turretHeight / 2 - this.radius * 0.2, turretWidth, turretHeight, 4);  // Adjusted size
         
-        // Turret details - darker olive green blobs
+        // Main gun barrel - dark grey
+        ctx.fillStyle = '#405060';  // Dark barrel color
+        const barrelLength = this.radius * 2.0;  // Longer barrel
+        const barrelWidth = this.radius * 0.2;  // Slightly thicker barrel
+        ctx.fillRect(turretWidth / 2, -barrelWidth / 2, barrelLength, barrelWidth);
+        
+        // Turret details (a blob to represent the machine gun turret mount)
         ctx.fillStyle = '#607030';
-        // Larger central blob
         ctx.beginPath();
-        ctx.arc(-turretWidth/6, -turretHeight/4, this.radius * 0.12, 0, Math.PI * 2);
+        ctx.arc(-turretWidth / 4, -turretHeight / 4, this.radius * 0.1, 0, Math.PI * 2);  // Small detail on turret
         ctx.fill();
         
-        // Smaller blob to the right
-        ctx.beginPath();
-        ctx.arc(turretWidth/4, -turretHeight/6, this.radius * 0.08, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Main gun barrel - dark blue-grey
-        ctx.fillStyle = '#405060';
-        const barrelLength = this.radius * 1.8;
-        const barrelWidth = this.radius * 0.15;
-        ctx.fillRect(turretWidth/2, -barrelWidth/2, barrelLength, barrelWidth);
-        
-        // Tank outline - dark blue-grey
+        // Tank outline
         ctx.strokeStyle = '#405060';
         ctx.lineWidth = 1;
-        this.strokeRoundedRect(ctx, -this.radius, -this.radius * 0.4, this.radius * 2, this.radius * 0.8, 3);
-        this.strokeRoundedRect(ctx, -turretWidth/2, -turretHeight/2 - this.radius * 0.1, turretWidth, turretHeight, 2);
-        ctx.strokeRect(turretWidth/2, -barrelWidth/2, barrelLength, barrelWidth);
+        this.strokeRoundedRect(ctx, -this.radius, -this.radius * 0.5, this.radius * 2, this.radius * 1, 6);
+        this.strokeRoundedRect(ctx, -turretWidth / 2, -turretHeight / 2 - this.radius * 0.2, turretWidth, turretHeight, 4);
+        ctx.strokeRect(turretWidth / 2, -barrelWidth / 2, barrelLength, barrelWidth);
         
         // Health bar
         ctx.restore();
@@ -839,6 +833,7 @@ class Tank {
         ctx.stroke();
     }
 }
+
 
 class Bullet {
     constructor(x, y, angle, ownerId) {
