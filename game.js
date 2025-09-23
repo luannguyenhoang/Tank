@@ -203,6 +203,8 @@ class TankBattleGame {
     }
     
     handleWebSocketMessage(data) {
+        console.log('Received WebSocket message:', data);
+        
         switch (data.type) {
             case 'roomCreated':
                 this.showWaitingRoom();
@@ -219,6 +221,7 @@ class TankBattleGame {
                 break;
                 
             case 'gameStarted':
+                console.log('Game started message received:', data);
                 this.startMultiplayerGame(data.players);
                 break;
                 
@@ -238,6 +241,9 @@ class TankBattleGame {
                 alert(data.message);
                 this.showGameModes();
                 break;
+                
+            default:
+                console.log('Unknown message type:', data.type);
         }
     }
     
@@ -265,6 +271,14 @@ class TankBattleGame {
         this.gameState = 'playing';
         this.players = {};
         
+        // Find which player is me based on WebSocket connection
+        let myPlayerId = null;
+        if (this.isHost) {
+            myPlayerId = 'player1';
+        } else {
+            myPlayerId = 'player2';
+        }
+        
         players.forEach((player, index) => {
             const isPlayer1 = index === 0;
             this.players[player.id] = new Tank(
@@ -275,14 +289,14 @@ class TankBattleGame {
             );
             this.players[player.id].health = player.health;
             this.players[player.id].ammo = player.ammo;
-            
-            if (player.id === this.playerId) {
-                this.playerId = player.id;
-            }
         });
+        
+        // Set my player ID
+        this.playerId = myPlayerId;
         
         console.log('My player ID:', this.playerId);
         console.log('All players:', this.players);
+        console.log('Is host:', this.isHost);
         
         this.hideOverlay();
         this.updateUI();
