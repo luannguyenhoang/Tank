@@ -229,6 +229,10 @@ class TankBattleGame {
                 this.handleGameUpdate(data);
                 break;
                 
+            case 'bulletShot':
+                this.handleBulletShot(data);
+                break;
+                
             case 'playerHit':
                 this.handlePlayerHit(data);
                 break;
@@ -482,6 +486,16 @@ class TankBattleGame {
             this.players[data.playerId].y = data.y;
             this.players[data.playerId].angle = data.angle;
         }
+    }
+    
+    handleBulletShot(data) {
+        const bullet = new Bullet(
+            data.bullet.x,
+            data.bullet.y,
+            data.bullet.angle,
+            data.bullet.ownerId
+        );
+        this.bullets.push(bullet);
     }
     
     handlePlayerHit(data) {
