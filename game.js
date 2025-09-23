@@ -2,7 +2,7 @@ class TankBattleGame {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
-        this.gameState = 'waiting'; // waiting, playing, gameOver
+        this.gameState = 'waiting'; // chờ đợi, đang chơi, kết thúc game
         this.playerId = null;
         this.players = {};
         this.bullets = [];
@@ -13,7 +13,7 @@ class TankBattleGame {
         this.roomCode = null;
         this.isHost = false;
         this.ws = null;
-        this.currentView = 'modes'; // modes, room-creation, room-joining, waiting-room
+        this.currentView = 'modes'; // chế độ, tạo phòng, tham gia phòng, phòng chờ
         this.scores = { player1: 0, player2: 0 };
         this.gameCount = 0;
         
@@ -23,7 +23,7 @@ class TankBattleGame {
     }
     
     setupEventListeners() {
-        // Keyboard events
+        // Sự kiện bàn phím
         document.addEventListener('keydown', (e) => {
             this.keys[e.code] = true;
             if (e.code === 'Space') {
@@ -40,7 +40,7 @@ class TankBattleGame {
             this.keys[e.code] = false;
         });
         
-        // Mouse events
+        // Sự kiện chuột
         this.canvas.addEventListener('mousemove', (e) => {
             const rect = this.canvas.getBoundingClientRect();
             this.mouse.x = e.clientX - rect.left;
@@ -55,7 +55,7 @@ class TankBattleGame {
     }
     
     setupUI() {
-        // Game mode buttons
+        // Nút chế độ game
         document.getElementById('create-room-btn').addEventListener('click', () => {
             this.showRoomCreation();
         });
@@ -68,7 +68,7 @@ class TankBattleGame {
             this.startSinglePlayer();
         });
         
-        // Room creation
+        // Tạo phòng
         document.getElementById('start-room-btn').addEventListener('click', () => {
             this.startRoomGame();
         });
@@ -77,12 +77,12 @@ class TankBattleGame {
             this.copyRoomCode();
         });
         
-        // Room joining
+        // Tham gia phòng
         document.getElementById('connect-room-btn').addEventListener('click', () => {
             this.joinRoom();
         });
         
-        // Back buttons
+        // Nút quay lại
         document.getElementById('back-to-modes-btn').addEventListener('click', () => {
             this.showGameModes();
         });
@@ -91,7 +91,7 @@ class TankBattleGame {
             this.showGameModes();
         });
         
-        // Waiting room
+        // Phòng chờ
         document.getElementById('leave-room-btn').addEventListener('click', () => {
             this.leaveRoom();
         });
@@ -104,7 +104,7 @@ class TankBattleGame {
             this.copyRoomCodeWaiting();
         });
         
-        // Room code input
+        // Nhập mã phòng
         document.getElementById('room-code-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 this.joinRoom();
@@ -112,7 +112,7 @@ class TankBattleGame {
         });
     }
     
-    // UI View Management
+    // Quản lý giao diện người dùng
     showGameModes() {
         this.currentView = 'modes';
         this.hideAllViews();
@@ -153,7 +153,7 @@ class TankBattleGame {
         document.getElementById('waiting-room').style.display = 'none';
     }
     
-    // Room Management
+    // Quản lý phòng
     createRoom() {
         this.roomCode = this.generateRoomCode();
         this.isHost = true;
@@ -174,7 +174,7 @@ class TankBattleGame {
     }
     
     connectWebSocket() {
-        // For Railway deployment, use wss protocol
+        // Để triển khai trên Railway, sử dụng giao thức wss
         const protocol = 'wss:';
         const wsUrl = `${protocol}//${window.location.host}`;
         
@@ -428,7 +428,7 @@ class TankBattleGame {
         const speed = 3;
         let moved = false;
         
-        // Movement
+        // Di chuyển
         if (this.keys['KeyW'] || this.keys['ArrowUp']) {
             player.y -= speed;
             moved = true;
@@ -446,16 +446,16 @@ class TankBattleGame {
             moved = true;
         }
         
-        // Keep tank within bounds
+        // Giữ xe tăng trong giới hạn
         player.x = Math.max(25, Math.min(this.canvas.width - 25, player.x));
         player.y = Math.max(25, Math.min(this.canvas.height - 25, player.y));
         
-        // Update tank angle based on mouse position
+        // Cập nhật góc xe tăng dựa trên vị trí chuột
         const dx = this.mouse.x - player.x;
         const dy = this.mouse.y - player.y;
         player.angle = Math.atan2(dy, dx);
         
-        // Send update to server if moved (only in multiplayer)
+        // Gửi cập nhật lên server nếu di chuyển (chỉ trong chế độ nhiều người chơi)
         if (moved && this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify({
                 type: 'gameUpdate',
@@ -474,19 +474,25 @@ class TankBattleGame {
         
         player.ammo--;
         
+        // Tính vị trí miệng súng (đầu nòng súng)
+        const turretWidth = player.radius * 1.4;
+        const barrelLength = player.radius * 2.2;
+        const muzzleX = player.x + Math.cos(player.angle) * (turretWidth/2 + barrelLength + 4);
+        const muzzleY = player.y + Math.sin(player.angle) * (turretWidth/2 + barrelLength + 4);
+        
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            // Multiplayer mode - send to server
+            // Chế độ nhiều người chơi - gửi lên server
             this.ws.send(JSON.stringify({
                 type: 'shoot',
-                x: player.x + Math.cos(player.angle) * 30,
-                y: player.y + Math.sin(player.angle) * 30,
+                x: muzzleX,
+                y: muzzleY,
                 angle: player.angle
             }));
         } else {
-            // Single player mode - create bullet locally
+            // Chế độ một người chơi - tạo đạn cục bộ
             const bullet = new Bullet(
-                player.x + Math.cos(player.angle) * 30,
-                player.y + Math.sin(player.angle) * 30,
+                muzzleX,
+                muzzleY,
                 player.angle,
                 player.id
             );
@@ -511,7 +517,7 @@ class TankBattleGame {
         this.updateUI();
     }
     
-    // WebSocket message handlers
+    // Xử lý tin nhắn WebSocket
     handleGameUpdate(data) {
         if (this.players[data.playerId]) {
             this.players[data.playerId].x = data.x;
@@ -562,14 +568,14 @@ class TankBattleGame {
             const bullet = this.bullets[i];
             bullet.update();
             
-            // Remove bullets that are out of bounds
+            // Xóa đạn ra khỏi giới hạn
             if (bullet.x < 0 || bullet.x > this.canvas.width || 
                 bullet.y < 0 || bullet.y > this.canvas.height) {
                 this.bullets.splice(i, 1);
                 continue;
             }
             
-            // Check collision with players
+            // Kiểm tra va chạm với người chơi
             for (const playerId in this.players) {
                 const player = this.players[playerId];
                 if (player.id !== bullet.ownerId && this.checkCollision(bullet, player)) {
@@ -590,13 +596,13 @@ class TankBattleGame {
         const dx = bullet.x - player.x;
         const dy = bullet.y - player.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        return distance < 25; // Tank radius + bullet radius
+        return distance < 25; // Bán kính xe tăng + bán kính đạn
     }
     
     gameOver(message) {
         this.gameState = 'gameOver';
         
-        // Update scores based on winner
+        // Cập nhật điểm dựa trên người thắng
         if (message.includes('You Won')) {
             this.scores[this.playerId]++;
         } else if (message.includes('You Lost')) {
@@ -606,10 +612,10 @@ class TankBattleGame {
         
         this.updateUI();
         
-        // Show game over message briefly, then restart
+        // Hiển thị thông báo kết thúc game ngắn gọn, sau đó khởi động lại
         this.showOverlay('Round Over!', message, false);
         
-        // Auto restart after 3 seconds
+        // Tự động khởi động lại sau 3 giây
         setTimeout(() => {
             this.restartGame();
         }, 3000);
@@ -620,7 +626,7 @@ class TankBattleGame {
         this.gameCount++;
         this.bullets = [];
         
-        // Reset player health and ammo
+        // Đặt lại máu và đạn của người chơi
         if (this.players.player1) {
             this.players.player1.health = 100;
             this.players.player1.ammo = 30;
@@ -660,22 +666,22 @@ class TankBattleGame {
     }
     
     render() {
-        // Clear canvas
+        // Xóa canvas
         this.ctx.fillStyle = '#7f8c8d';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Draw grid
+        // Vẽ lưới
         this.drawGrid();
         
-        // Draw players
+        // Vẽ người chơi
         for (const playerId in this.players) {
             this.players[playerId].render(this.ctx);
         }
         
-        // Draw bullets
+        // Vẽ đạn
         this.bullets.forEach(bullet => bullet.render(this.ctx));
         
-        // Draw crosshair
+        // Vẽ tâm ngắm
         if (this.gameState === 'playing') {
             this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
             this.ctx.lineWidth = 2;
@@ -692,7 +698,7 @@ class TankBattleGame {
         this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
         this.ctx.lineWidth = 1;
         
-        // Vertical lines
+        // Đường thẳng đứng
         for (let x = 0; x <= this.canvas.width; x += 50) {
             this.ctx.beginPath();
             this.ctx.moveTo(x, 0);
@@ -700,7 +706,7 @@ class TankBattleGame {
             this.ctx.stroke();
         }
         
-        // Horizontal lines
+        // Đường thẳng ngang
         for (let y = 0; y <= this.canvas.height; y += 50) {
             this.ctx.beginPath();
             this.ctx.moveTo(0, y);
@@ -748,36 +754,24 @@ class Tank {
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
         
-        // Tank shadow - soft grey shadow
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
-        ctx.fillRect(-this.radius - 3, this.radius + 3, this.radius * 2 + 6, 6);
+        // Thân xe tăng (phần chính) - hình chữ nhật màu xanh ô liu
+        ctx.fillStyle = '#8B9A46';
+        ctx.fillRect(-this.radius, -this.radius * 0.6, this.radius * 2, this.radius * 1.2);
         
-        // Tank tracks - dark brown sections (draw first so they're behind the hull)
-        ctx.fillStyle = '#8B4513';
-        ctx.fillRect(-this.radius - 4, -this.radius * 0.7, 8, this.radius * 1.4);
-        ctx.fillRect(this.radius - 4, -this.radius * 0.7, 8, this.radius * 1.4);
+        // Xích xe tăng - các phần nâu đậm ở trên dưới
+        ctx.fillStyle = '#6a6d37';
+        ctx.fillRect(-this.radius * 0.8, -this.radius - 0.1, this.radius * 1.7, 8);
+        ctx.fillRect(-this.radius * 0.8, this.radius - 8, this.radius * 1.7, 8);
         
-        // Track details
-        ctx.fillStyle = '#654321';
-        for (let i = 0; i < 5; i++) {
-            const y = -this.radius * 0.7 + (i * this.radius * 0.35);
-            ctx.fillRect(-this.radius - 3, y, 6, 4);
-            ctx.fillRect(this.radius - 3, y, 6, 4);
+        // Chi tiết xích - các đoạn xích riêng lẻ
+        ctx.fillStyle = '#565830FF';
+        for (let i = 0; i < 6; i++) {
+            const x = -this.radius * 0.8 + (i * this.radius * 0.28);
+            ctx.fillRect(x, -this.radius - 0.1, 3, 8);
+            ctx.fillRect(x, this.radius - 8, 3, 8);
         }
         
-        // Tank hull (main body) - olive green with sloped edges
-        ctx.fillStyle = '#8B9A46';
-        ctx.beginPath();
-        ctx.moveTo(-this.radius, -this.radius * 0.5);
-        ctx.lineTo(this.radius * 0.7, -this.radius * 0.7);
-        ctx.lineTo(this.radius, -this.radius * 0.4);
-        ctx.lineTo(this.radius, this.radius * 0.4);
-        ctx.lineTo(this.radius * 0.7, this.radius * 0.7);
-        ctx.lineTo(-this.radius, this.radius * 0.5);
-        ctx.closePath();
-        ctx.fill();
-        
-        // Tank turret - hexagonal shape
+        // Tháp pháo xe tăng - hình lục giác
         ctx.fillStyle = '#9BAF5A';
         const turretWidth = this.radius * 1.4;
         const turretHeight = this.radius * 0.9;
@@ -793,15 +787,15 @@ class Tank {
         ctx.closePath();
         ctx.fill();
         
-        // Turret details - circular and rectangular elements
+        // Chi tiết tháp pháo - các phần tử hình tròn và chữ nhật
         ctx.fillStyle = '#6B7C32';
         
-        // Commander's cupola (large circular feature)
+        // Nóc chỉ huy (đặc điểm hình tròn lớn)
         ctx.beginPath();
         ctx.arc(turretWidth/6, -turretHeight/4, this.radius * 0.2, 0, Math.PI * 2);
         ctx.fill();
         
-        // Small circular details
+        // Chi tiết hình tròn nhỏ
         ctx.beginPath();
         ctx.arc(-turretWidth/4, -turretHeight/4, this.radius * 0.12, 0, Math.PI * 2);
         ctx.fill();
@@ -810,50 +804,56 @@ class Tank {
         ctx.arc(turretWidth/4, turretHeight/4, this.radius * 0.08, 0, Math.PI * 2);
         ctx.fill();
         
-        // Rectangular details
+        // Chi tiết hình chữ nhật
         ctx.fillRect(turretWidth/4, -turretHeight/6, this.radius * 0.25, this.radius * 0.15);
         ctx.fillRect(-turretWidth/3, turretHeight/6, this.radius * 0.2, this.radius * 0.1);
         
-        // Main gun barrel - long and thin
-        ctx.fillStyle = '#8B9A46';
-        const barrelLength = this.radius * 2.2;
-        const barrelWidth = this.radius * 0.15;
-        ctx.fillRect(turretWidth/2, -barrelWidth/2, barrelLength, barrelWidth);
-        
-        // Gun muzzle - reinforced end
-        ctx.fillStyle = '#6B7C32';
-        ctx.fillRect(turretWidth/2 + barrelLength, -barrelWidth/2 - 1, 4, barrelWidth + 2);
-        
-        // Tank outline - darker green
+        // Viền xe tăng - xanh đậm hơn
         ctx.strokeStyle = '#6B7C32';
         ctx.lineWidth = 2;
         ctx.stroke();
         
-        // Hull outline
+        // Viền thân xe
         ctx.beginPath();
-        ctx.moveTo(-this.radius, -this.radius * 0.5);
+        ctx.moveTo(-this.radius, -this.radius * 0.6);
         ctx.lineTo(this.radius * 0.7, -this.radius * 0.7);
         ctx.lineTo(this.radius, -this.radius * 0.4);
         ctx.lineTo(this.radius, this.radius * 0.4);
         ctx.lineTo(this.radius * 0.7, this.radius * 0.7);
-        ctx.lineTo(-this.radius, this.radius * 0.5);
+        ctx.lineTo(-this.radius, this.radius * 0.6);
+        ctx.lineTo(-this.radius, -this.radius * 0.6);
         ctx.closePath();
         ctx.stroke();
         
-        // Track outlines
-        ctx.strokeStyle = '#654321';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(-this.radius - 4, -this.radius * 0.7, 8, this.radius * 1.4);
-        ctx.strokeRect(this.radius - 4, -this.radius * 0.7, 8, this.radius * 1.4);
+        // Nòng súng chính - dài và mỏng (vẽ sau viền để đè lên)
+        ctx.fillStyle = '#616B34FF';
+        const barrelLength = this.radius * 1.9;
+        const barrelWidth = this.radius * 0.15;
+        ctx.fillRect(turretWidth/2, -barrelWidth/2, barrelLength, barrelWidth);
         
-        // Health bar
+        // Thêm viền cho nòng súng
+        ctx.strokeStyle = '#6B7C32';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(turretWidth/2, -barrelWidth/2, barrelLength, barrelWidth);
+        
+        // Miệng súng - đầu được gia cố
+        ctx.fillStyle = '#455023FF';
+        ctx.fillRect(turretWidth/2 + barrelLength, -barrelWidth/2 - 2, 4, barrelWidth + 4);
+        
+        // Viền xích
+        ctx.fillStyle = 'black';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(-this.radius * 0.8, -this.radius - 0.1, this.radius * 1.7, 8);
+        ctx.strokeRect(-this.radius * 0.8, this.radius - 8, this.radius * 1.7, 8);
+        
+        // Thanh máu    
         ctx.restore();
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(this.x - 30, this.y - 40, 60, 8);
         ctx.fillStyle = this.health > 50 ? '#27ae60' : this.health > 25 ? '#f39c12' : '#e74c3c';
         ctx.fillRect(this.x - 30, this.y - 40, (this.health / this.maxHealth) * 60, 8);
         
-        // Player ID
+        // ID người chơi
         ctx.fillStyle = 'white';
         ctx.font = 'bold 12px Arial';
         ctx.textAlign = 'center';
@@ -885,7 +885,7 @@ class Bullet {
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         ctx.fill();
         
-        // Bullet trail effect
+        // Hiệu ứng vệt đạn
         ctx.fillStyle = 'rgba(243, 156, 18, 0.3)';
         ctx.beginPath();
         ctx.arc(this.x - Math.cos(this.angle) * 10, this.y - Math.sin(this.angle) * 10, this.radius * 0.7, 0, Math.PI * 2);
@@ -893,7 +893,7 @@ class Bullet {
     }
 }
 
-// Initialize game when page loads
+// Khởi tạo game khi trang được tải
 document.addEventListener('DOMContentLoaded', () => {
     new TankBattleGame();
 });
