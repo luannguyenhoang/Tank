@@ -10,6 +10,10 @@ class TankBattleGame {
         this.mouse = { x: 0, y: 0 };
         this.lastTime = 0;
         this.gameId = null;
+        this.roomCode = null;
+        this.isHost = false;
+        this.ws = null;
+        this.currentView = 'modes'; // modes, room-creation, room-joining, waiting-room
         
         this.setupEventListeners();
         this.setupUI();
@@ -49,16 +53,189 @@ class TankBattleGame {
     }
     
     setupUI() {
-        document.getElementById('start-btn').addEventListener('click', () => {
-            this.startGame();
+        // Game mode buttons
+        document.getElementById('create-room-btn').addEventListener('click', () => {
+            this.showRoomCreation();
         });
         
-        document.getElementById('join-btn').addEventListener('click', () => {
-            this.joinGame();
+        document.getElementById('join-room-btn').addEventListener('click', () => {
+            this.showRoomJoining();
+        });
+        
+        document.getElementById('single-player-btn').addEventListener('click', () => {
+            this.startSinglePlayer();
+        });
+        
+        // Room creation
+        document.getElementById('start-room-btn').addEventListener('click', () => {
+            this.startRoomGame();
+        });
+        
+        document.getElementById('copy-code-btn').addEventListener('click', () => {
+            this.copyRoomCode();
+        });
+        
+        // Room joining
+        document.getElementById('connect-room-btn').addEventListener('click', () => {
+            this.joinRoom();
+        });
+        
+        // Back buttons
+        document.getElementById('back-to-modes-btn').addEventListener('click', () => {
+            this.showGameModes();
+        });
+        
+        document.getElementById('back-to-modes-btn-2').addEventListener('click', () => {
+            this.showGameModes();
+        });
+        
+        // Waiting room
+        document.getElementById('leave-room-btn').addEventListener('click', () => {
+            this.leaveRoom();
+        });
+        
+        // Room code input
+        document.getElementById('room-code-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.joinRoom();
+            }
         });
     }
     
-    startGame() {
+    // UI View Management
+    showGameModes() {
+        this.currentView = 'modes';
+        this.hideAllViews();
+        document.getElementById('game-modes').style.display = 'block';
+        document.getElementById('overlay-title').textContent = 'Tank Battle 1v1';
+        document.getElementById('overlay-message').textContent = 'Choose your game mode!';
+    }
+    
+    showRoomCreation() {
+        this.currentView = 'room-creation';
+        this.hideAllViews();
+        document.getElementById('room-creation').style.display = 'block';
+        this.createRoom();
+    }
+    
+    showRoomJoining() {
+        this.currentView = 'room-joining';
+        this.hideAllViews();
+        document.getElementById('room-joining').style.display = 'block';
+        document.getElementById('room-code-input').focus();
+    }
+    
+    showWaitingRoom() {
+        this.currentView = 'waiting-room';
+        this.hideAllViews();
+        document.getElementById('waiting-room').style.display = 'block';
+    }
+    
+    hideAllViews() {
+        document.getElementById('game-modes').style.display = 'none';
+        document.getElementById('room-creation').style.display = 'none';
+        document.getElementById('room-joining').style.display = 'none';
+        document.getElementById('waiting-room').style.display = 'none';
+    }
+    
+    // Room Management
+    createRoom() {
+        this.roomCode = this.generateRoomCode();
+        this.isHost = true;
+        document.getElementById('room-code-display').textContent = this.roomCode;
+        this.connectWebSocket();
+    }
+    
+    joinRoom() {
+        const roomCode = document.getElementById('room-code-input').value.toUpperCase();
+        if (!roomCode || roomCode.length !== 6) {
+            alert('Please enter a valid 6-character room code!');
+            return;
+        }
+        
+        this.roomCode = roomCode;
+        this.isHost = false;
+        this.connectWebSocket();
+    }
+    
+    connectWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}`;
+        
+        this.ws = new WebSocket(wsUrl);
+        
+        this.ws.onopen = () => {
+            console.log('Connected to server');
+            if (this.isHost) {
+                this.ws.send(JSON.stringify({
+                    type: 'createRoom',
+                    roomCode: this.roomCode
+                }));
+            } else {
+                this.ws.send(JSON.stringify({
+                    type: 'joinRoom',
+                    roomCode: this.roomCode
+                }));
+            }
+        };
+        
+        this.ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            this.handleWebSocketMessage(data);
+        };
+        
+        this.ws.onclose = () => {
+            console.log('Disconnected from server');
+            this.showGameModes();
+        };
+        
+        this.ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            alert('Connection failed. Please try again.');
+            this.showGameModes();
+        };
+    }
+    
+    handleWebSocketMessage(data) {
+        switch (data.type) {
+            case 'roomCreated':
+                this.showWaitingRoom();
+                this.updateWaitingRoom([{ id: 'player1', name: 'You', status: 'ready' }]);
+                break;
+                
+            case 'roomJoined':
+                this.showWaitingRoom();
+                this.updateWaitingRoom(data.players);
+                break;
+                
+            case 'playerJoined':
+                this.updateWaitingRoom(data.players);
+                break;
+                
+            case 'gameStarted':
+                this.startMultiplayerGame(data.players);
+                break;
+                
+            case 'gameUpdate':
+                this.handleGameUpdate(data);
+                break;
+                
+            case 'playerHit':
+                this.handlePlayerHit(data);
+                break;
+                
+            case 'gameEnded':
+                this.handleGameEnd(data);
+                break;
+                
+            case 'error':
+                alert(data.message);
+                this.showGameModes();
+                break;
+        }
+    }
+    
+    startSinglePlayer() {
         this.gameState = 'playing';
         this.playerId = 'player1';
         this.players = {
@@ -69,16 +246,79 @@ class TankBattleGame {
         this.updateUI();
     }
     
-    joinGame() {
-        // In a real implementation, this would connect to a WebSocket server
+    startRoomGame() {
+        if (this.ws) {
+            this.ws.send(JSON.stringify({
+                type: 'startGame'
+            }));
+        }
+    }
+    
+    startMultiplayerGame(players) {
         this.gameState = 'playing';
-        this.playerId = 'player2';
-        this.players = {
-            player1: new Tank(100, 300, 'player1', '#3498db'),
-            player2: new Tank(900, 300, 'player2', '#e74c3c')
-        };
+        this.players = {};
+        
+        players.forEach((player, index) => {
+            const isPlayer1 = index === 0;
+            this.players[player.id] = new Tank(
+                isPlayer1 ? 100 : 900,
+                300,
+                player.id,
+                player.color
+            );
+            this.players[player.id].health = player.health;
+            this.players[player.id].ammo = player.ammo;
+            
+            if (player.id === this.playerId) {
+                this.playerId = player.id;
+            }
+        });
+        
         this.hideOverlay();
         this.updateUI();
+    }
+    
+    generateRoomCode() {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let result = '';
+        for (let i = 0; i < 6; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+    }
+    
+    copyRoomCode() {
+        navigator.clipboard.writeText(this.roomCode).then(() => {
+            const btn = document.getElementById('copy-code-btn');
+            const originalText = btn.textContent;
+            btn.textContent = 'Copied!';
+            setTimeout(() => {
+                btn.textContent = originalText;
+            }, 2000);
+        });
+    }
+    
+    updateWaitingRoom(players) {
+        const player1Element = document.getElementById('player1-waiting');
+        const player2Element = document.getElementById('player2-waiting');
+        
+        player1Element.querySelector('.player-status').textContent = 'Ready';
+        player1Element.querySelector('.player-status').className = 'player-status ready';
+        
+        if (players.length > 1) {
+            player2Element.querySelector('.player-status').textContent = 'Ready';
+            player2Element.querySelector('.player-status').className = 'player-status ready';
+        } else {
+            player2Element.querySelector('.player-status').textContent = 'Waiting...';
+            player2Element.querySelector('.player-status').className = 'player-status waiting';
+        }
+    }
+    
+    leaveRoom() {
+        if (this.ws) {
+            this.ws.close();
+        }
+        this.showGameModes();
     }
     
     hideOverlay() {
@@ -116,19 +356,24 @@ class TankBattleGame {
         
         const player = this.players[this.playerId];
         const speed = 3;
+        let moved = false;
         
         // Movement
         if (this.keys['KeyW'] || this.keys['ArrowUp']) {
             player.y -= speed;
+            moved = true;
         }
         if (this.keys['KeyS'] || this.keys['ArrowDown']) {
             player.y += speed;
+            moved = true;
         }
         if (this.keys['KeyA'] || this.keys['ArrowLeft']) {
             player.x -= speed;
+            moved = true;
         }
         if (this.keys['KeyD'] || this.keys['ArrowRight']) {
             player.x += speed;
+            moved = true;
         }
         
         // Keep tank within bounds
@@ -139,6 +384,16 @@ class TankBattleGame {
         const dx = this.mouse.x - player.x;
         const dy = this.mouse.y - player.y;
         player.angle = Math.atan2(dy, dx);
+        
+        // Send update to server if moved
+        if (moved && this.ws) {
+            this.ws.send(JSON.stringify({
+                type: 'gameUpdate',
+                x: player.x,
+                y: player.y,
+                angle: player.angle
+            }));
+        }
     }
     
     shoot() {
@@ -148,13 +403,26 @@ class TankBattleGame {
         if (player.ammo <= 0) return;
         
         player.ammo--;
-        const bullet = new Bullet(
-            player.x + Math.cos(player.angle) * 30,
-            player.y + Math.sin(player.angle) * 30,
-            player.angle,
-            player.id
-        );
-        this.bullets.push(bullet);
+        
+        if (this.ws) {
+            // Multiplayer mode - send to server
+            this.ws.send(JSON.stringify({
+                type: 'shoot',
+                x: player.x + Math.cos(player.angle) * 30,
+                y: player.y + Math.sin(player.angle) * 30,
+                angle: player.angle
+            }));
+        } else {
+            // Single player mode - create bullet locally
+            const bullet = new Bullet(
+                player.x + Math.cos(player.angle) * 30,
+                player.y + Math.sin(player.angle) * 30,
+                player.angle,
+                player.id
+            );
+            this.bullets.push(bullet);
+        }
+        
         this.updateUI();
     }
     
@@ -163,7 +431,36 @@ class TankBattleGame {
         
         const player = this.players[this.playerId];
         player.ammo = Math.min(30, player.ammo + 10);
+        
+        if (this.ws) {
+            this.ws.send(JSON.stringify({
+                type: 'reload'
+            }));
+        }
+        
         this.updateUI();
+    }
+    
+    // WebSocket message handlers
+    handleGameUpdate(data) {
+        if (this.players[data.playerId]) {
+            this.players[data.playerId].x = data.x;
+            this.players[data.playerId].y = data.y;
+            this.players[data.playerId].angle = data.angle;
+        }
+    }
+    
+    handlePlayerHit(data) {
+        if (this.players[data.playerId]) {
+            this.players[data.playerId].health = data.health;
+            this.updateUI();
+        }
+    }
+    
+    handleGameEnd(data) {
+        this.gameState = 'gameOver';
+        const message = data.winner === this.playerId ? 'You Won!' : 'You Lost!';
+        this.showOverlay('Game Over!', message, true);
     }
     
     updateBullets() {

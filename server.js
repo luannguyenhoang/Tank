@@ -8,8 +8,8 @@ class TankBattleServer {
         this.port = port;
         this.server = http.createServer();
         this.wss = new WebSocket.Server({ server: this.server });
-        this.games = new Map();
-        this.players = new Map();
+        this.rooms = new Map(); // roomCode -> room data
+        this.players = new Map(); // ws -> player data
         
         this.setupServer();
         this.setupWebSocket();
@@ -86,11 +86,14 @@ class TankBattleServer {
     
     handleMessage(ws, data) {
         switch (data.type) {
-            case 'createGame':
-                this.createGame(ws, data);
+            case 'createRoom':
+                this.createRoom(ws, data);
                 break;
-            case 'joinGame':
-                this.joinGame(ws, data);
+            case 'joinRoom':
+                this.joinRoom(ws, data);
+                break;
+            case 'startGame':
+                this.startGame(ws, data);
                 break;
             case 'gameUpdate':
                 this.handleGameUpdate(ws, data);
@@ -101,22 +104,34 @@ class TankBattleServer {
             case 'reload':
                 this.handleReload(ws, data);
                 break;
+            case 'leaveRoom':
+                this.leaveRoom(ws, data);
+                break;
         }
     }
     
-    createGame(ws, data) {
-        const gameId = this.generateGameId();
+    createRoom(ws, data) {
+        const roomCode = data.roomCode;
         const playerId = 'player1';
         
-        const game = {
-            id: gameId,
+        if (this.rooms.has(roomCode)) {
+            ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Room code already exists'
+            }));
+            return;
+        }
+        
+        const room = {
+            code: roomCode,
             players: new Map(),
             bullets: [],
             state: 'waiting', // waiting, playing, finished
-            createdAt: Date.now()
+            createdAt: Date.now(),
+            host: ws
         };
         
-        game.players.set(playerId, {
+        room.players.set(playerId, {
             id: playerId,
             ws: ws,
             x: 100,
@@ -127,40 +142,48 @@ class TankBattleServer {
             color: '#3498db'
         });
         
-        this.games.set(gameId, game);
-        this.players.set(ws, { gameId, playerId });
+        this.rooms.set(roomCode, room);
+        this.players.set(ws, { roomCode, playerId });
         
         ws.send(JSON.stringify({
-            type: 'gameCreated',
-            gameId: gameId,
+            type: 'roomCreated',
+            roomCode: roomCode,
             playerId: playerId
         }));
         
-        console.log(`Game ${gameId} created by player ${playerId}`);
+        console.log(`Room ${roomCode} created by player ${playerId}`);
     }
     
-    joinGame(ws, data) {
-        const gameId = data.gameId;
-        const game = this.games.get(gameId);
+    joinRoom(ws, data) {
+        const roomCode = data.roomCode;
+        const room = this.rooms.get(roomCode);
         
-        if (!game) {
+        if (!room) {
             ws.send(JSON.stringify({
                 type: 'error',
-                message: 'Game not found'
+                message: 'Room not found'
             }));
             return;
         }
         
-        if (game.players.size >= 2) {
+        if (room.players.size >= 2) {
             ws.send(JSON.stringify({
                 type: 'error',
-                message: 'Game is full'
+                message: 'Room is full'
+            }));
+            return;
+        }
+        
+        if (room.state !== 'waiting') {
+            ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Game already started'
             }));
             return;
         }
         
         const playerId = 'player2';
-        game.players.set(playerId, {
+        room.players.set(playerId, {
             id: playerId,
             ws: ws,
             x: 900,
@@ -171,13 +194,37 @@ class TankBattleServer {
             color: '#e74c3c'
         });
         
-        this.players.set(ws, { gameId, playerId });
-        game.state = 'playing';
+        this.players.set(ws, { roomCode, playerId });
         
-        // Notify all players in the game
-        this.broadcastToGame(gameId, {
+        // Notify all players in the room
+        this.broadcastToRoom(roomCode, {
+            type: 'playerJoined',
+            players: Array.from(room.players.values()).map(p => ({
+                id: p.id,
+                name: p.id === 'player1' ? 'Player 1' : 'Player 2',
+                status: 'ready'
+            }))
+        });
+        
+        console.log(`Player ${playerId} joined room ${roomCode}`);
+    }
+    
+    startGame(ws, data) {
+        const playerInfo = this.players.get(ws);
+        if (!playerInfo) return;
+        
+        const room = this.rooms.get(playerInfo.roomCode);
+        if (!room || room.state !== 'waiting') return;
+        
+        // Only host can start the game
+        if (room.host !== ws) return;
+        
+        room.state = 'playing';
+        
+        // Notify all players in the room
+        this.broadcastToRoom(playerInfo.roomCode, {
             type: 'gameStarted',
-            players: Array.from(game.players.values()).map(p => ({
+            players: Array.from(room.players.values()).map(p => ({
                 id: p.id,
                 x: p.x,
                 y: p.y,
@@ -187,17 +234,17 @@ class TankBattleServer {
             }))
         });
         
-        console.log(`Player ${playerId} joined game ${gameId}`);
+        console.log(`Game started in room ${playerInfo.roomCode}`);
     }
     
     handleGameUpdate(ws, data) {
         const playerInfo = this.players.get(ws);
         if (!playerInfo) return;
         
-        const game = this.games.get(playerInfo.gameId);
-        if (!game || game.state !== 'playing') return;
+        const room = this.rooms.get(playerInfo.roomCode);
+        if (!room || room.state !== 'playing') return;
         
-        const player = game.players.get(playerInfo.playerId);
+        const player = room.players.get(playerInfo.playerId);
         if (!player) return;
         
         // Update player position and angle
@@ -206,8 +253,8 @@ class TankBattleServer {
         player.angle = data.angle;
         
         // Broadcast update to other players
-        this.broadcastToGame(playerInfo.gameId, {
-            type: 'playerUpdate',
+        this.broadcastToRoom(playerInfo.roomCode, {
+            type: 'gameUpdate',
             playerId: playerInfo.playerId,
             x: player.x,
             y: player.y,
@@ -219,10 +266,10 @@ class TankBattleServer {
         const playerInfo = this.players.get(ws);
         if (!playerInfo) return;
         
-        const game = this.games.get(playerInfo.gameId);
-        if (!game || game.state !== 'playing') return;
+        const room = this.rooms.get(playerInfo.roomCode);
+        if (!room || room.state !== 'playing') return;
         
-        const player = game.players.get(playerInfo.playerId);
+        const player = room.players.get(playerInfo.playerId);
         if (!player || player.ammo <= 0) return;
         
         player.ammo--;
@@ -237,49 +284,71 @@ class TankBattleServer {
             createdAt: Date.now()
         };
         
-        game.bullets.push(bullet);
+        room.bullets.push(bullet);
         
         // Broadcast bullet to all players
-        this.broadcastToGame(playerInfo.gameId, {
+        this.broadcastToRoom(playerInfo.roomCode, {
             type: 'bulletShot',
             bullet: bullet
         });
         
         // Check for collisions
-        this.checkBulletCollisions(game);
+        this.checkBulletCollisions(room);
     }
     
     handleReload(ws, data) {
         const playerInfo = this.players.get(ws);
         if (!playerInfo) return;
         
-        const game = this.games.get(playerInfo.gameId);
-        if (!game || game.state !== 'playing') return;
+        const room = this.rooms.get(playerInfo.roomCode);
+        if (!room || room.state !== 'playing') return;
         
-        const player = game.players.get(playerInfo.playerId);
+        const player = room.players.get(playerInfo.playerId);
         if (!player) return;
         
         player.ammo = Math.min(30, player.ammo + 10);
         
-        this.broadcastToGame(playerInfo.gameId, {
+        this.broadcastToRoom(playerInfo.roomCode, {
             type: 'playerReloaded',
             playerId: playerInfo.playerId,
             ammo: player.ammo
         });
     }
     
-    checkBulletCollisions(game) {
-        for (let i = game.bullets.length - 1; i >= 0; i--) {
-            const bullet = game.bullets[i];
+    leaveRoom(ws, data) {
+        const playerInfo = this.players.get(ws);
+        if (!playerInfo) return;
+        
+        const room = this.rooms.get(playerInfo.roomCode);
+        if (room) {
+            room.players.delete(playerInfo.playerId);
+            
+            if (room.players.size === 0) {
+                this.rooms.delete(playerInfo.roomCode);
+            } else {
+                this.broadcastToRoom(playerInfo.roomCode, {
+                    type: 'playerLeft',
+                    playerId: playerInfo.playerId
+                });
+            }
+        }
+        
+        this.players.delete(ws);
+        console.log(`Player ${playerInfo.playerId} left room ${playerInfo.roomCode}`);
+    }
+    
+    checkBulletCollisions(room) {
+        for (let i = room.bullets.length - 1; i >= 0; i--) {
+            const bullet = room.bullets[i];
             
             // Remove old bullets
             if (Date.now() - bullet.createdAt > 5000) {
-                game.bullets.splice(i, 1);
+                room.bullets.splice(i, 1);
                 continue;
             }
             
             // Check collision with players
-            for (const [playerId, player] of game.players) {
+            for (const [playerId, player] of room.players) {
                 if (playerId !== bullet.ownerId) {
                     const dx = bullet.x - player.x;
                     const dy = bullet.y - player.y;
@@ -288,9 +357,9 @@ class TankBattleServer {
                     if (distance < 25) {
                         // Hit!
                         player.health = Math.max(0, player.health - 20);
-                        game.bullets.splice(i, 1);
+                        room.bullets.splice(i, 1);
                         
-                        this.broadcastToGame(game.id, {
+                        this.broadcastToRoom(room.code, {
                             type: 'playerHit',
                             playerId: playerId,
                             health: player.health,
@@ -298,7 +367,7 @@ class TankBattleServer {
                         });
                         
                         if (player.health <= 0) {
-                            this.endGame(game, bullet.ownerId);
+                            this.endGame(room, bullet.ownerId);
                         }
                         break;
                     }
@@ -307,17 +376,17 @@ class TankBattleServer {
         }
     }
     
-    endGame(game, winnerId) {
-        game.state = 'finished';
+    endGame(room, winnerId) {
+        room.state = 'finished';
         
-        this.broadcastToGame(game.id, {
+        this.broadcastToRoom(room.code, {
             type: 'gameEnded',
             winner: winnerId
         });
         
-        // Clean up game after 30 seconds
+        // Clean up room after 30 seconds
         setTimeout(() => {
-            this.games.delete(game.id);
+            this.rooms.delete(room.code);
         }, 30000);
     }
     
@@ -325,14 +394,14 @@ class TankBattleServer {
         const playerInfo = this.players.get(ws);
         if (!playerInfo) return;
         
-        const game = this.games.get(playerInfo.gameId);
-        if (game) {
-            game.players.delete(playerInfo.playerId);
+        const room = this.rooms.get(playerInfo.roomCode);
+        if (room) {
+            room.players.delete(playerInfo.playerId);
             
-            if (game.players.size === 0) {
-                this.games.delete(playerInfo.gameId);
+            if (room.players.size === 0) {
+                this.rooms.delete(playerInfo.roomCode);
             } else {
-                this.broadcastToGame(playerInfo.gameId, {
+                this.broadcastToRoom(playerInfo.roomCode, {
                     type: 'playerDisconnected',
                     playerId: playerInfo.playerId
                 });
@@ -343,19 +412,15 @@ class TankBattleServer {
         console.log(`Player ${playerInfo.playerId} disconnected`);
     }
     
-    broadcastToGame(gameId, message, excludeWs = null) {
-        const game = this.games.get(gameId);
-        if (!game) return;
+    broadcastToRoom(roomCode, message, excludeWs = null) {
+        const room = this.rooms.get(roomCode);
+        if (!room) return;
         
-        for (const player of game.players.values()) {
+        for (const player of room.players.values()) {
             if (player.ws !== excludeWs && player.ws.readyState === WebSocket.OPEN) {
                 player.ws.send(JSON.stringify(message));
             }
         }
-    }
-    
-    generateGameId() {
-        return Math.random().toString(36).substr(2, 9);
     }
     
     start() {

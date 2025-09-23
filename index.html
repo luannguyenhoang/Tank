@@ -30,9 +30,51 @@
             <div class="game-overlay" id="game-overlay">
                 <div class="overlay-content">
                     <h2 id="overlay-title">Tank Battle 1v1</h2>
-                    <p id="overlay-message">Click "Start Game" to begin!</p>
-                    <button id="start-btn" class="btn">Start Game</button>
-                    <button id="join-btn" class="btn" style="display: none;">Join Game</button>
+                    <p id="overlay-message">Choose your game mode!</p>
+                    
+                    <div class="game-modes" id="game-modes">
+                        <button id="create-room-btn" class="btn btn-primary">Create Room</button>
+                        <button id="join-room-btn" class="btn btn-secondary">Join Room</button>
+                        <button id="single-player-btn" class="btn btn-tertiary">Single Player</button>
+                    </div>
+                    
+                    <div class="room-creation" id="room-creation" style="display: none;">
+                        <h3>Room Created!</h3>
+                        <div class="room-code">
+                            <label>Room Code:</label>
+                            <div class="code-display">
+                                <span id="room-code-display">ABC123</span>
+                                <button id="copy-code-btn" class="btn-small">Copy</button>
+                            </div>
+                        </div>
+                        <p>Share this code with your friend!</p>
+                        <button id="start-room-btn" class="btn">Start Game</button>
+                        <button id="back-to-modes-btn" class="btn btn-secondary">Back</button>
+                    </div>
+                    
+                    <div class="room-joining" id="room-joining" style="display: none;">
+                        <h3>Join Room</h3>
+                        <div class="room-input">
+                            <input type="text" id="room-code-input" placeholder="Enter room code" maxlength="6">
+                            <button id="connect-room-btn" class="btn">Connect</button>
+                        </div>
+                        <button id="back-to-modes-btn-2" class="btn btn-secondary">Back</button>
+                    </div>
+                    
+                    <div class="waiting-room" id="waiting-room" style="display: none;">
+                        <h3>Waiting for Players...</h3>
+                        <div class="players-list">
+                            <div class="player-item" id="player1-waiting">
+                                <span class="player-name">Player 1</span>
+                                <span class="player-status">Ready</span>
+                            </div>
+                            <div class="player-item" id="player2-waiting">
+                                <span class="player-name">Player 2</span>
+                                <span class="player-status">Waiting...</span>
+                            </div>
+                        </div>
+                        <button id="leave-room-btn" class="btn btn-secondary">Leave Room</button>
+                    </div>
                 </div>
             </div>
         </div>
