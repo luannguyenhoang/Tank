@@ -752,6 +752,19 @@ class Tank {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
         ctx.fillRect(-this.radius - 3, this.radius + 3, this.radius * 2 + 6, 6);
         
+        // Tank tracks - dark brown sections (draw first so they're behind the hull)
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(-this.radius - 4, -this.radius * 0.7, 8, this.radius * 1.4);
+        ctx.fillRect(this.radius - 4, -this.radius * 0.7, 8, this.radius * 1.4);
+        
+        // Track details
+        ctx.fillStyle = '#654321';
+        for (let i = 0; i < 5; i++) {
+            const y = -this.radius * 0.7 + (i * this.radius * 0.35);
+            ctx.fillRect(-this.radius - 3, y, 6, 4);
+            ctx.fillRect(this.radius - 3, y, 6, 4);
+        }
+        
         // Tank hull (main body) - olive green with sloped edges
         ctx.fillStyle = '#8B9A46';
         ctx.beginPath();
@@ -763,19 +776,6 @@ class Tank {
         ctx.lineTo(-this.radius, this.radius * 0.5);
         ctx.closePath();
         ctx.fill();
-        
-        // Tank tracks - dark brown sections
-        ctx.fillStyle = '#8B4513';
-        ctx.fillRect(-this.radius - 3, -this.radius * 0.6, 6, this.radius * 1.2);
-        ctx.fillRect(this.radius - 3, -this.radius * 0.6, 6, this.radius * 1.2);
-        
-        // Track details
-        ctx.fillStyle = '#654321';
-        for (let i = 0; i < 4; i++) {
-            const y = -this.radius * 0.6 + (i * this.radius * 0.4);
-            ctx.fillRect(-this.radius - 2, y, 4, 3);
-            ctx.fillRect(this.radius - 2, y, 4, 3);
-        }
         
         // Tank turret - hexagonal shape
         ctx.fillStyle = '#9BAF5A';
@@ -839,6 +839,12 @@ class Tank {
         ctx.lineTo(-this.radius, this.radius * 0.5);
         ctx.closePath();
         ctx.stroke();
+        
+        // Track outlines
+        ctx.strokeStyle = '#654321';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(-this.radius - 4, -this.radius * 0.7, 8, this.radius * 1.4);
+        ctx.strokeRect(this.radius - 4, -this.radius * 0.7, 8, this.radius * 1.4);
         
         // Health bar
         ctx.restore();
