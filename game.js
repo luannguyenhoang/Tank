@@ -661,7 +661,7 @@ class TankBattleGame {
     
     render() {
         // Clear canvas
-        this.ctx.fillStyle = '#27ae60';
+        this.ctx.fillStyle = '#7f8c8d';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
         // Draw grid
