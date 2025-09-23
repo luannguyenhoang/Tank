@@ -237,6 +237,10 @@ class TankBattleGame {
                 this.handlePlayerHit(data);
                 break;
                 
+            case 'playerDisconnected':
+                this.handlePlayerDisconnected(data);
+                break;
+                
             case 'gameEnded':
                 this.handleGameEnd(data);
                 break;
@@ -505,6 +509,18 @@ class TankBattleGame {
         }
     }
     
+    handlePlayerDisconnected(data) {
+        console.log('Player disconnected:', data.playerId);
+        if (this.players[data.playerId]) {
+            delete this.players[data.playerId];
+        }
+        
+        // If it's the other player who disconnected, you win
+        if (data.playerId !== this.playerId) {
+            this.gameOver('You Won! (Opponent disconnected)');
+        }
+    }
+    
     handleGameEnd(data) {
         this.gameState = 'gameOver';
         const message = data.winner === this.playerId ? 'You Won!' : 'You Lost!';
@@ -550,6 +566,24 @@ class TankBattleGame {
     gameOver(message) {
         this.gameState = 'gameOver';
         this.showOverlay('Game Over!', message, true);
+    }
+    
+    showOverlay(title, message, showJoin = false) {
+        const overlay = document.getElementById('game-overlay');
+        if (!overlay) {
+            console.error('Game overlay element not found');
+            return;
+        }
+        
+        const titleElement = document.getElementById('overlay-title');
+        const messageElement = document.getElementById('overlay-message');
+        const joinBtn = document.getElementById('join-btn');
+        
+        if (titleElement) titleElement.textContent = title;
+        if (messageElement) messageElement.textContent = message;
+        if (joinBtn) joinBtn.style.display = showJoin ? 'inline-block' : 'none';
+        
+        overlay.classList.remove('hidden');
     }
     
     render() {
