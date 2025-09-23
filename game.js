@@ -94,6 +94,10 @@ class TankBattleGame {
             this.leaveRoom();
         });
         
+        document.getElementById('start-room-btn-waiting').addEventListener('click', () => {
+            this.startRoomGame();
+        });
+        
         // Room code input
         document.getElementById('room-code-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
@@ -301,6 +305,7 @@ class TankBattleGame {
     updateWaitingRoom(players) {
         const player1Element = document.getElementById('player1-waiting');
         const player2Element = document.getElementById('player2-waiting');
+        const startBtn = document.getElementById('start-room-btn-waiting');
         
         player1Element.querySelector('.player-status').textContent = 'Ready';
         player1Element.querySelector('.player-status').className = 'player-status ready';
@@ -308,9 +313,15 @@ class TankBattleGame {
         if (players.length > 1) {
             player2Element.querySelector('.player-status').textContent = 'Ready';
             player2Element.querySelector('.player-status').className = 'player-status ready';
+            
+            // Show start button for host when 2 players are ready
+            if (this.isHost) {
+                startBtn.style.display = 'inline-block';
+            }
         } else {
             player2Element.querySelector('.player-status').textContent = 'Waiting...';
             player2Element.querySelector('.player-status').className = 'player-status waiting';
+            startBtn.style.display = 'none';
         }
     }
     

@@ -227,6 +227,13 @@ body {
     margin: 20px 0;
 }
 
+.waiting-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
 .player-item {
     display: flex;
     justify-content: space-between;
