@@ -47,6 +47,25 @@ body {
     font-weight: bold;
 }
 
+.player-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.player-stats span {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 5px 10px;
+    border-radius: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+#player1-score, #player2-score {
+    background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+    color: white;
+    font-weight: bold;
+}
+
 .player-info span {
     background: rgba(255, 255, 255, 0.1);
     padding: 5px 10px;

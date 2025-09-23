@@ -14,6 +14,8 @@ class TankBattleGame {
         this.isHost = false;
         this.ws = null;
         this.currentView = 'modes'; // modes, room-creation, room-joining, waiting-room
+        this.scores = { player1: 0, player2: 0 };
+        this.gameCount = 0;
         
         this.setupEventListeners();
         this.setupUI();
@@ -401,11 +403,17 @@ class TankBattleGame {
             document.getElementById('player2-ammo').textContent = `Ammo: ${this.players.player2.ammo}`;
         }
         
+        // Update scores
+        document.getElementById('player1-score').textContent = `Score: ${this.scores.player1}`;
+        document.getElementById('player2-score').textContent = `Score: ${this.scores.player2}`;
+        
         let status = 'Waiting for players...';
         if (this.gameState === 'playing') {
-            status = 'Game in progress!';
+            status = `Game ${this.gameCount} in progress!`;
         } else if (this.gameState === 'gameOver') {
             status = 'Game Over!';
+        } else if (this.gameState === 'restarting') {
+            status = 'Restarting in 3 seconds...';
         }
         document.getElementById('game-status').textContent = status;
     }
@@ -537,7 +545,9 @@ class TankBattleGame {
         
         // If it's the other player who disconnected, you win
         if (data.playerId !== this.playerId) {
-            this.gameOver('You Won! (Opponent disconnected)');
+            this.scores[this.playerId]++;
+            this.updateUI();
+            this.showOverlay('Game Over!', 'You Won! (Opponent disconnected)', true);
         }
     }
     
@@ -585,7 +595,50 @@ class TankBattleGame {
     
     gameOver(message) {
         this.gameState = 'gameOver';
-        this.showOverlay('Game Over!', message, true);
+        
+        // Update scores based on winner
+        if (message.includes('You Won')) {
+            this.scores[this.playerId]++;
+        } else if (message.includes('You Lost')) {
+            const otherPlayer = this.playerId === 'player1' ? 'player2' : 'player1';
+            this.scores[otherPlayer]++;
+        }
+        
+        this.updateUI();
+        
+        // Show game over message briefly, then restart
+        this.showOverlay('Round Over!', message, false);
+        
+        // Auto restart after 3 seconds
+        setTimeout(() => {
+            this.restartGame();
+        }, 3000);
+    }
+    
+    restartGame() {
+        this.gameState = 'restarting';
+        this.gameCount++;
+        this.bullets = [];
+        
+        // Reset player health and ammo
+        if (this.players.player1) {
+            this.players.player1.health = 100;
+            this.players.player1.ammo = 30;
+            this.players.player1.x = 100;
+            this.players.player1.y = 300;
+        }
+        if (this.players.player2) {
+            this.players.player2.health = 100;
+            this.players.player2.ammo = 30;
+            this.players.player2.x = 900;
+            this.players.player2.y = 300;
+        }
+        
+        this.hideOverlay();
+        this.gameState = 'playing';
+        this.updateUI();
+        
+        console.log(`Game ${this.gameCount} started! Scores: Player1: ${this.scores.player1}, Player2: ${this.scores.player2}`);
     }
     
     showOverlay(title, message, showJoin = false) {
