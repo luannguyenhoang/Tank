@@ -19,6 +19,10 @@ class TankBattleGame {
     this.scores = { player1: 0, player2: 0 };
     this.gameCount = 0;
     this.turretRotated = false; // Theo dõi việc quay tháp pháo
+    this.outOfAmmoMessage = { show: false, time: 0 }; // Thông báo hết đạn
+    this.reloadEffect = { show: false, time: 0, progress: 0 }; // Hiệu ứng nạp đạn
+    this.damageEffects = []; // Hiệu ứng hư hỏng
+    this.fireEffects = []; // Hiệu ứng lửa cháy
 
     this.setupEventListeners();
     this.setupUI();
@@ -510,10 +514,11 @@ class TankBattleGame {
     const dx = this.mouse.x - player.x;
     const dy = this.mouse.y - player.y;
     const newAngle = Math.atan2(dy, dx);
-    
+
     // Kiểm tra xem tháp pháo có quay không
     const angleDiff = Math.abs(player.angle - newAngle);
-    if (angleDiff > 0.01) { // Chỉ cập nhật nếu góc thay đổi đáng kể
+    if (angleDiff > 0.01) {
+      // Chỉ cập nhật nếu góc thay đổi đáng kể
       this.turretRotated = true;
       player.angle = newAngle;
     }
@@ -524,7 +529,11 @@ class TankBattleGame {
     }
 
     // Gửi cập nhật lên server nếu di chuyển hoặc quay tháp pháo (chỉ trong chế độ nhiều người chơi)
-    if ((moved || this.turretRotated) && this.ws && this.ws.readyState === WebSocket.OPEN) {
+    if (
+      (moved || this.turretRotated) &&
+      this.ws &&
+      this.ws.readyState === WebSocket.OPEN
+    ) {
       this.ws.send(
         JSON.stringify({
           type: "gameUpdate",
@@ -546,7 +555,12 @@ class TankBattleGame {
       return;
 
     const player = this.players[this.playerId];
-    if (player.ammo <= 0) return;
+    if (player.ammo <= 0) {
+      // Hiển thị thông báo hết đạn
+      this.outOfAmmoMessage.show = true;
+      this.outOfAmmoMessage.time = 2000; // Hiển thị trong 2 giây
+      return;
+    }
 
     player.ammo--;
 
@@ -628,6 +642,238 @@ class TankBattleGame {
     this.smokeParticles.forEach((smoke) => smoke.render(this.ctx));
   }
 
+  // Class cho hiệu ứng hư hỏng
+  createDamageEffect(player) {
+    const effect = {
+      x: player.x + (Math.random() - 0.5) * player.radius * 2,
+      y: player.y + (Math.random() - 0.5) * player.radius * 2,
+      size: 2 + Math.random() * 4,
+      life: 1.0,
+      maxLife: 1.0,
+      vx: (Math.random() - 0.5) * 2,
+      vy: (Math.random() - 0.5) * 2,
+      color: this.getDamageColor(player.health)
+    };
+    this.damageEffects.push(effect);
+  }
+
+  getDamageColor(health) {
+    if (health > 75) return "#ff6b6b"; // Đỏ nhạt
+    if (health > 50) return "#ff8c00"; // Cam
+    if (health > 25) return "#ff4500"; // Đỏ cam
+    return "#8b0000"; // Đỏ đậm
+  }
+
+  updateDamageEffects() {
+    // Cập nhật hiệu ứng hư hỏng hiện có
+    for (let i = this.damageEffects.length - 1; i >= 0; i--) {
+      const effect = this.damageEffects[i];
+      effect.x += effect.vx;
+      effect.y += effect.vy;
+      effect.life -= 0.02;
+      effect.size *= 0.98;
+      
+      if (effect.life <= 0) {
+        this.damageEffects.splice(i, 1);
+      }
+    }
+    
+    // Tạo hiệu ứng hư hỏng liên tục cho xe tăng máu thấp
+    for (const playerId in this.players) {
+      const player = this.players[playerId];
+      if (player.health < 30 && Math.random() < 0.1) {
+        this.createDamageEffect(player);
+      }
+    }
+  }
+
+  renderDamageEffects() {
+    this.damageEffects.forEach(effect => {
+      if (effect.life <= 0) return;
+      
+      this.ctx.save();
+      this.ctx.globalAlpha = effect.life;
+      this.ctx.fillStyle = effect.color;
+      this.ctx.beginPath();
+      this.ctx.arc(effect.x, effect.y, effect.size, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.restore();
+    });
+  }
+
+  // Tạo hiệu ứng lửa cháy
+  createFireEffect(player) {
+    const effect = {
+      x: player.x + (Math.random() - 0.5) * player.radius * 1.5,
+      y: player.y + (Math.random() - 0.5) * player.radius * 1.5,
+      size: 3 + Math.random() * 4,
+      life: 1.0,
+      maxLife: 1.0,
+      vx: (Math.random() - 0.5) * 1,
+      vy: -1 - Math.random() * 2, // Bay lên
+      color: this.getFireColor(),
+      flicker: Math.random() * Math.PI * 2
+    };
+    this.fireEffects.push(effect);
+  }
+
+  getFireColor() {
+    const colors = [
+      "#ff4500", // Cam đỏ
+      "#ff6500", // Cam
+      "#ff8500", // Cam vàng
+      "#ffa500", // Cam nhạt
+      "#ffff00", // Vàng
+      "#ff0000"  // Đỏ
+    ];
+    return colors[Math.floor(Math.random() * colors.length)];
+  }
+
+  updateFireEffects() {
+    // Cập nhật hiệu ứng lửa hiện có
+    for (let i = this.fireEffects.length - 1; i >= 0; i--) {
+      const effect = this.fireEffects[i];
+      effect.x += effect.vx;
+      effect.y += effect.vy;
+      effect.life -= 0.03;
+      effect.size *= 0.98;
+      effect.flicker += 0.2;
+      
+      if (effect.life <= 0) {
+        this.fireEffects.splice(i, 1);
+      }
+    }
+    
+    // Tạo hiệu ứng lửa cho xe tăng máu thấp
+    for (const playerId in this.players) {
+      const player = this.players[playerId];
+      if (player.health <= 30 && Math.random() < 0.15) {
+        this.createFireEffect(player);
+      }
+    }
+  }
+
+  renderFireEffects() {
+    this.fireEffects.forEach(effect => {
+      if (effect.life <= 0) return;
+      
+      this.ctx.save();
+      this.ctx.globalAlpha = effect.life;
+      
+      // Hiệu ứng nhấp nháy
+      const flickerIntensity = Math.sin(effect.flicker) * 0.3 + 0.7;
+      this.ctx.globalAlpha *= flickerIntensity;
+      
+      // Tạo gradient lửa
+      const gradient = this.ctx.createRadialGradient(
+        effect.x, effect.y, 0,
+        effect.x, effect.y, effect.size
+      );
+      gradient.addColorStop(0, effect.color);
+      gradient.addColorStop(0.5, effect.color + "80");
+      gradient.addColorStop(1, "transparent");
+      
+      this.ctx.fillStyle = gradient;
+      this.ctx.beginPath();
+      this.ctx.arc(effect.x, effect.y, effect.size, 0, Math.PI * 2);
+      this.ctx.fill();
+      
+      // Lõi sáng
+      this.ctx.globalAlpha *= 0.8;
+      this.ctx.fillStyle = "#ffffff";
+      this.ctx.beginPath();
+      this.ctx.arc(effect.x, effect.y, effect.size * 0.3, 0, Math.PI * 2);
+      this.ctx.fill();
+      
+      this.ctx.restore();
+    });
+  }
+
+  updateOutOfAmmoMessage() {
+    if (this.outOfAmmoMessage.show) {
+      this.outOfAmmoMessage.time -= 16; // Giảm 16ms mỗi frame (60fps)
+      if (this.outOfAmmoMessage.time <= 0) {
+        this.outOfAmmoMessage.show = false;
+      }
+    }
+  }
+
+  updateReloadEffect() {
+    if (this.reloadEffect.show) {
+      this.reloadEffect.time -= 16; // Giảm 16ms mỗi frame (60fps)
+      this.reloadEffect.progress = (2000 - this.reloadEffect.time) / 2000; // 0-1
+
+      if (this.reloadEffect.time <= 0) {
+        this.reloadEffect.show = false;
+        this.reloadEffect.progress = 0;
+      }
+    }
+  }
+
+  renderOutOfAmmoMessage() {
+    if (
+      this.outOfAmmoMessage.show &&
+      this.playerId &&
+      this.players[this.playerId]
+    ) {
+      const player = this.players[this.playerId];
+
+      this.ctx.save();
+
+      // Tính độ trong suốt dựa trên thời gian còn lại
+      const alpha = Math.min(1, this.outOfAmmoMessage.time / 300); // Fade out trong 0.5s cuối
+
+      // Vị trí hiển thị bên dưới xe tăng
+      const messageX = player.x;
+      const messageY = player.y + player.radius + 20;
+      // Vẽ chữ "HẾT ĐẠN"
+      this.ctx.fillStyle = `rgba(255, 0, 0, ${alpha})`;
+      this.ctx.font = "bold 12px Arial";
+      this.ctx.textAlign = "center";
+      this.ctx.textBaseline = "middle";
+      this.ctx.fillText("Hết Đạn", messageX, messageY);
+
+      this.ctx.restore();
+    }
+  }
+
+  renderReloadEffect() {
+    if (
+      this.reloadEffect.show &&
+      this.playerId &&
+      this.players[this.playerId]
+    ) {
+      const player = this.players[this.playerId];
+
+      this.ctx.save();
+
+      // Vị trí hiển thị bên trên xe tăng
+      const effectX = player.x;
+      const effectY = player.y - player.radius - 40;
+
+      // Vẽ nền thanh tiến trình
+      this.ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+      this.ctx.fillRect(effectX - 60, effectY - 15, 120, 10);
+
+      // Vẽ thanh tiến trình
+      const progressWidth = 116 * this.reloadEffect.progress;
+      const gradient = this.ctx.createLinearGradient(
+        effectX - 58,
+        effectY,
+        effectX + 58,
+        effectY
+      );
+      gradient.addColorStop(0, "#F80000FF");
+      gradient.addColorStop(0.5, "#EEFF00FF");
+      gradient.addColorStop(1, "#01FF23FF");
+
+      this.ctx.fillStyle = gradient;
+      this.ctx.fillRect(effectX - 58, effectY - 14, progressWidth, 7);
+
+      this.ctx.restore();
+    }
+  }
+
   reload() {
     if (
       this.gameState !== "playing" ||
@@ -637,17 +883,32 @@ class TankBattleGame {
       return;
 
     const player = this.players[this.playerId];
-    player.ammo = Math.min(15, player.ammo + 15);
 
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(
-        JSON.stringify({
-          type: "reload",
-        })
-      );
-    }
+    // Kiểm tra xem có đang nạp đạn không
+    if (this.reloadEffect.show) return;
+    
+    // Kiểm tra xem đã đầy đạn chưa
+    if (player.ammo >= 15) return;
 
-    this.updateUI();
+    // Bắt đầu hiệu ứng nạp đạn
+    this.reloadEffect.show = true;
+    this.reloadEffect.time = 2000; // 2 giây
+    this.reloadEffect.progress = 0;
+
+    // Nạp đạn sau 1.5 giây (để hiệu ứng kịp hiển thị)
+    setTimeout(() => {
+      player.ammo = Math.min(15, player.ammo + 15);
+
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.ws.send(
+          JSON.stringify({
+            type: "reload",
+          })
+        );
+      }
+
+      this.updateUI();
+    }, 1500);
   }
 
   // Xử lý tin nhắn WebSocket
@@ -715,21 +976,34 @@ class TankBattleGame {
       // Kiểm tra va chạm với người chơi
       for (const playerId in this.players) {
         const player = this.players[playerId];
-        if (
-          player.id !== bullet.ownerId &&
-          this.checkCollision(bullet, player)
-        ) {
-          player.takeDamage(20);
-          this.bullets.splice(i, 1);
-          this.updateUI();
+         if (
+           player.id !== bullet.ownerId &&
+           this.checkCollision(bullet, player)
+         ) {
+           player.takeDamage(20);
+           
+           // Tạo hiệu ứng hư hỏng
+           for (let j = 0; j < 5; j++) {
+             this.createDamageEffect(player);
+           }
+           
+           // Tạo hiệu ứng lửa cháy khi máu thấp
+           if (player.health <= 50) {
+             for (let j = 0; j < 3; j++) {
+               this.createFireEffect(player);
+             }
+           }
+           
+           this.bullets.splice(i, 1);
+           this.updateUI();
 
-          if (player.health <= 0) {
-            this.gameOver(
-              playerId === this.playerId ? "You Lost!" : "You Won!"
-            );
-          }
-          break;
-        }
+           if (player.health <= 0) {
+             this.gameOver(
+               playerId === this.playerId ? "You Lost!" : "You Won!"
+             );
+           }
+           break;
+         }
       }
     }
 
@@ -837,6 +1111,18 @@ class TankBattleGame {
     // Vẽ hiệu ứng khói
     this.renderSmokeParticles();
 
+    // Vẽ thông báo hết đạn
+    this.renderOutOfAmmoMessage();
+
+    // Vẽ hiệu ứng nạp đạn
+    this.renderReloadEffect();
+
+    // Vẽ hiệu ứng hư hỏng
+    this.renderDamageEffects();
+
+    // Vẽ hiệu ứng lửa cháy
+    this.renderFireEffects();
+
     // Vẽ tâm ngắm
     if (this.gameState === "playing") {
       this.ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
@@ -878,6 +1164,10 @@ class TankBattleGame {
     if (this.gameState === "playing") {
       this.handleInput();
       this.updateBullets();
+      this.updateOutOfAmmoMessage();
+      this.updateReloadEffect();
+      this.updateDamageEffects();
+      this.updateFireEffects();
     }
 
     this.render();
@@ -911,13 +1201,58 @@ class Tank {
     ctx.rotate(this.angle);
 
     // Thân xe tăng (phần chính) - hình chữ nhật màu xanh ô liu
-    ctx.fillStyle = "#8B9A46";
+    let bodyColor = "#8B9A46";
+    
+    // Thay đổi màu thân xe dựa trên mức máu
+    if (this.health <= 25) {
+      bodyColor = "#5a5a5a"; // Xám đậm khi sắp chết
+    } else if (this.health <= 50) {
+      bodyColor = "#6a6a3a"; // Xanh ô liu đậm
+    } else if (this.health <= 75) {
+      bodyColor = "#7a7a3a"; // Xanh ô liu nhạt hơn
+    }
+    
+    ctx.fillStyle = bodyColor;
     ctx.fillRect(
       -this.radius,
       -this.radius * 0.6,
       this.radius * 2,
       this.radius * 1.2
     );
+
+    // Vẽ vết nứt khi máu thấp
+    if (this.health <= 50) {
+      ctx.strokeStyle = "#2a2a2a";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      
+      // Vẽ các vết nứt ngẫu nhiên
+      const crackCount = Math.floor((100 - this.health) / 25);
+      for (let i = 0; i < crackCount; i++) {
+        const startX = -this.radius + Math.random() * this.radius * 2;
+        const startY = -this.radius * 0.6 + Math.random() * this.radius * 1.2;
+        const endX = startX + (Math.random() - 0.5) * 20;
+        const endY = startY + (Math.random() - 0.5) * 20;
+        
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
+      }
+      ctx.stroke();
+      
+      // Vẽ khói từ vết nứt khi máu rất thấp
+      if (this.health <= 25) {
+        ctx.fillStyle = "rgba(100, 100, 100, 0.3)";
+        ctx.beginPath();
+        ctx.arc(
+          -this.radius + Math.random() * this.radius * 2,
+          -this.radius * 0.6 + Math.random() * this.radius * 1.2,
+          3 + Math.random() * 2,
+          0,
+          Math.PI * 2
+        );
+        ctx.fill();
+      }
+    }
 
     // Xích xe tăng - các phần nâu đậm ở trên dưới
     ctx.fillStyle = "#6a6d37";
