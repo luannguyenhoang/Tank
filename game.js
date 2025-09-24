@@ -18,6 +18,7 @@ class TankBattleGame {
     this.currentView = "modes"; // chế độ, tạo phòng, tham gia phòng, phòng chờ
     this.scores = { player1: 0, player2: 0 };
     this.gameCount = 0;
+    this.turretRotated = false; // Theo dõi việc quay tháp pháo
 
     this.setupEventListeners();
     this.setupUI();
@@ -508,15 +509,22 @@ class TankBattleGame {
     // Cập nhật góc xe tăng dựa trên vị trí chuột
     const dx = this.mouse.x - player.x;
     const dy = this.mouse.y - player.y;
-    player.angle = Math.atan2(dy, dx);
+    const newAngle = Math.atan2(dy, dx);
+    
+    // Kiểm tra xem tháp pháo có quay không
+    const angleDiff = Math.abs(player.angle - newAngle);
+    if (angleDiff > 0.01) { // Chỉ cập nhật nếu góc thay đổi đáng kể
+      this.turretRotated = true;
+      player.angle = newAngle;
+    }
 
     // Tạo hiệu ứng khói khi di chuyển
     if (moved) {
       this.createSmokeParticles(player);
     }
 
-    // Gửi cập nhật lên server nếu di chuyển (chỉ trong chế độ nhiều người chơi)
-    if (moved && this.ws && this.ws.readyState === WebSocket.OPEN) {
+    // Gửi cập nhật lên server nếu di chuyển hoặc quay tháp pháo (chỉ trong chế độ nhiều người chơi)
+    if ((moved || this.turretRotated) && this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(
         JSON.stringify({
           type: "gameUpdate",
@@ -525,6 +533,7 @@ class TankBattleGame {
           angle: player.angle,
         })
       );
+      this.turretRotated = false; // Reset sau khi gửi
     }
   }
 
